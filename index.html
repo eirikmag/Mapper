@@ -16,27 +16,32 @@
 
 <body>
     <div id="controls">
-        <h1>Norgeskart GPX Viewer</h1>
-
-        <div class="upload-section">
-            <input type="file" id="gpx-upload" accept=".gpx" multiple />
-            <p class="instructions">Upload GPX files (saved automatically).</p>
+        <div class="header-row">
+            <h1>Norgeskart GPX Viewer</h1>
+            <button id="toggle-controls" title="Minimize/Maximize">− </button>
         </div>
 
-        <div id="track-list-container">
-            <h3>Server Tracks (Folder)</h3>
-            <ul id="server-track-list">
-                <!-- Server tracks listed here -->
-            </ul>
-            <p id="no-server-tracks" class="empty-msg">No tracks in 'tracks/' folder.</p>
+        <div id="controls-content">
 
-            <h3>My Tracks (Local)</h3>
-            <ul id="local-track-list">
-                <!-- Local tracks listed here -->
-            </ul>
-            <button id="clear-all-btn" class="danger-btn">Clear All Local Tracks</button>
+            <div class="upload-section">
+                <input type="file" id="gpx-upload" accept=".gpx" multiple />
+                <p class="instructions">Upload GPX files (saved automatically).</p>
+            </div>
+
+            <div id="track-list-container">
+                <h3>Server Tracks (Folder)</h3>
+                <ul id="server-track-list">
+                    <!-- Server tracks listed here -->
+                </ul>
+                <p id="no-server-tracks" class="empty-msg">No tracks in 'tracks/' folder.</p>
+
+                <h3>My Tracks (Local)</h3>
+                <ul id="local-track-list">
+                    <!-- Local tracks listed here -->
+                </ul>
+                <button id="clear-all-btn" class="danger-btn">Clear All Local Tracks</button>
+            </div>
         </div>
-    </div> <!-- End controls-content -->
     </div>
     <div id="map"></div>
     <script src="app.js"></script>
