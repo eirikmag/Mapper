@@ -29,6 +29,17 @@ This project is a simple web application to view Norgeskart topographic maps wit
 - **Visibility**: Use the checkboxes to show/hide specific tracks without deleting them.
 - **Deletion**: Local tracks can be deleted permanently. Server tracks must be removed from the folder.
 
+### Important for GitHub Pages (Online)
+Since GitHub Pages is a static site host, it cannot automatically scan the `tracks/` folder. 
+If you add new files to `tracks/` and want them to appear online, you must manually update `tracks/list.json`:
+```json
+[
+  "tracks/MyNewHike.gpx",
+  "tracks/OldHike.gpx"
+]
+```
+Locally (with `server.py`), this file is ignored and the folder is scanned automatically.
+
 
 ## Troubleshooting
 - **Map tiles not loading?** Ensure you have internet access.

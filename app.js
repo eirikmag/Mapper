@@ -156,12 +156,28 @@ function renderLists() {
 
 async function fetchServerTracks() {
     try {
-        const response = await fetch('/api/tracks');
-        if (!response.ok) throw new Error("API not found");
-        const files = await response.json();
+        let files = [];
+        try {
+            // Try dynamic API first (local python server)
+            const response = await fetch('/api/tracks');
+            if (response.ok) {
+                const text = await response.text();
+                // If server returns HTML (e.g. standard file listing or 404 page), treat as fail
+                if (text.trim().startsWith('<')) throw new Error("API returned HTML");
+                files = JSON.parse(text);
+            } else {
+                throw new Error("API not found");
+            }
+        } catch (apiError) {
+            console.log("API failed, trying static list.json fallback...", apiError);
+            // Fallback to static JSON list (GitHub Pages)
+            const staticResponse = await fetch('tracks/list.json');
+            if (!staticResponse.ok) throw new Error("Static list not found");
+            files = await staticResponse.json();
+        }
 
         serverTrackList.innerHTML = '';
-        if (files.length === 0) {
+        if (!files || files.length === 0) {
             noServerTracksMsg.style.display = 'block';
         } else {
             noServerTracksMsg.style.display = 'none';
@@ -180,8 +196,8 @@ async function fetchServerTracks() {
         }
 
     } catch (e) {
-        console.warn("Could not fetch server tracks (maybe running without server.py?)", e);
-        noServerTracksMsg.textContent = "Could not connect to server.";
+        console.warn("Could not fetch tracks (neither API nor static list work)", e);
+        noServerTracksMsg.textContent = "Could not connect to server or find track list.";
     }
 }
 
