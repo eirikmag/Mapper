@@ -1,4 +1,5 @@
-body, html {
+body,
+html {
     margin: 0;
     padding: 0;
     height: 100%;
@@ -19,7 +20,7 @@ body, html {
     background: white;
     padding: 20px;
     border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
     max-width: 300px;
 }
 
@@ -36,7 +37,68 @@ body, html {
 }
 
 .instructions {
-    margin: 0;
+    margin: 0 0 10px 0;
     font-size: 0.9rem;
     color: #666;
+}
+
+#track-list-container {
+    margin-top: 15px;
+    border-top: 1px solid #eee;
+    padding-top: 10px;
+}
+
+#track-list-container h3 {
+    margin: 0 0 10px 0;
+    font-size: 1rem;
+    color: #333;
+}
+
+#track-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 10px 0;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+#track-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
+    font-size: 0.9rem;
+    border-bottom: 1px solid #f5f5f5;
+}
+
+#track-list li:last-child {
+    border-bottom: none;
+}
+
+.delete-btn {
+    background: none;
+    border: none;
+    color: #cc0000;
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 2px 5px;
+}
+
+.delete-btn:hover {
+    text-decoration: underline;
+}
+
+.danger-btn {
+    background: #cc0000;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    width: 100%;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.danger-btn:hover {
+    background: #a30000;
 }

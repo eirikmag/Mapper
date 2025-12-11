@@ -28,32 +28,119 @@ const overlayMaps = {
 
 L.control.layers(baseMaps, overlayMaps).addTo(map);
 
-// 3. GPX Upload Handler
+// 3. GPX Storage and Management
+const STORAGE_KEY = 'gpx_tracks';
+let tracks = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+const loadedLayers = {}; // Keep track of Leaflet layers by filename
+
+// Initialize UI
 const inputElement = document.getElementById('gpx-upload');
+const trackListElement = document.getElementById('track-list');
+const clearAllBtn = document.getElementById('clear-all-btn');
 
-inputElement.addEventListener('change', function(event) {
-    const file = event.target.files[0];
-    if (!file) return;
+function saveTracks() {
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(tracks));
+    } catch (e) {
+        alert("Storage full! Could not save track. Please delete some old tracks.");
+    }
+}
 
-    const reader = new FileReader();
+function addTrackToMap(filename, gpxContent) {
+    if (loadedLayers[filename]) return; // Already on map
 
-    reader.onload = function(e) {
-        const gpxContent = e.target.result;
-        
-        // Use leaflet-gpx to parse and display
-        new L.GPX(gpxContent, {
-            async: true,
-            marker_options: {
-                startIconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet-gpx/1.7.0/pin-icon-start.png',
-                endIconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet-gpx/1.7.0/pin-icon-end.png',
-                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet-gpx/1.7.0/pin-shadow.png'
-            }
-        }).on('loaded', function(e) {
-            map.fitBounds(e.target.getBounds());
-            // Add to layer control if desired, or just keep on map
-            // We could remove old GPX layers if we wanted to support only one at a time
-        }).addTo(map);
-    };
+    const gpxLayer = new L.GPX(gpxContent, {
+        async: true,
+        marker_options: {
+            startIconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet-gpx/1.7.0/pin-icon-start.png',
+            endIconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet-gpx/1.7.0/pin-icon-end.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet-gpx/1.7.0/pin-shadow.png'
+        }
+    }).on('loaded', function (e) {
+        map.fitBounds(e.target.getBounds());
+    }).addTo(map);
 
-    reader.readAsText(file);
+    loadedLayers[filename] = gpxLayer;
+}
+
+function removeTrack(filename) {
+    // Remove from map
+    if (loadedLayers[filename]) {
+        map.removeLayer(loadedLayers[filename]);
+        delete loadedLayers[filename];
+    }
+    // Remove from storage
+    delete tracks[filename];
+    saveTracks();
+    // Update UI
+    renderTrackList();
+}
+
+function renderTrackList() {
+    trackListElement.innerHTML = '';
+    const filenames = Object.keys(tracks);
+
+    if (filenames.length === 0) {
+        trackListElement.innerHTML = '<li style="color:#999; font-style:italic;">No tracks loaded</li>';
+        clearAllBtn.style.display = 'none';
+        return;
+    }
+
+    clearAllBtn.style.display = 'block';
+
+    filenames.forEach(filename => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+            <span title="${filename}" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:180px;">${filename}</span>
+            <button class="delete-btn" title="Remove track">×</button>
+        `;
+
+        li.querySelector('.delete-btn').onclick = () => removeTrack(filename);
+        trackListElement.appendChild(li);
+    });
+}
+
+function loadSavedTracks() {
+    Object.entries(tracks).forEach(([filename, content]) => {
+        addTrackToMap(filename, content);
+    });
+    renderTrackList();
+}
+
+// Event Listeners
+inputElement.addEventListener('change', function (event) {
+    const files = event.target.files;
+    if (!files.length) return;
+
+    Array.from(files).forEach(file => {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            const content = e.target.result;
+            tracks[file.name] = content;
+            saveTracks();
+            addTrackToMap(file.name, content);
+            renderTrackList();
+        };
+        reader.readAsText(file);
+    });
+
+    // Reset input so same file can be selected again if needed
+    inputElement.value = '';
 });
+
+clearAllBtn.addEventListener('click', () => {
+    if (confirm('Are you sure you want to delete all tracks?')) {
+        Object.keys(loadedLayers).forEach(filename => {
+            map.removeLayer(loadedLayers[filename]);
+        });
+        for (const prop of Object.getOwnPropertyNames(loadedLayers)) {
+            delete loadedLayers[prop];
+        }
+        tracks = {};
+        saveTracks();
+        renderTrackList();
+    }
+});
+
+// Initial Load
+loadSavedTracks();

@@ -23,11 +23,24 @@ This project is a simple web application to view Norgeskart topographic maps wit
 ### 2. Properties Overlay
 - Toggle "Property Borders" in the layer control (top-right).
 
-### 3. Upload GPX
-- Click "Choose File" to upload a `.gpx` file.
-- The map automatically zooms to the track.
-- Visualize your route on top of property lines.
+### 3. Upload & Manage GPX
+- **Upload**: Click "Choose Files" to upload one or more `.gpx` files.
+- **Auto-Save**: Tracks are automatically saved to your browser's local storage. They will reappear when you reload the page.
+- **Track List**: See all your loaded tracks in the sidebar.
+- **Delete**: Click the `×` next to a track to remove it, or "Clear All Tracks" to reset.
+
 
 ## Troubleshooting
 - **Map tiles not loading?** Ensure you have internet access.
 - **CORS Errors?** Make sure you are using `http://localhost:8081` and not opening the file directly.
+
+## Deployment (GitHub Pages)
+
+You can host this app for free using [GitHub Pages](https://pages.github.com/).
+
+1.  Push this repository to GitHub.
+2.  Go to the repository **Settings**.
+3.  Click on **Pages** in the left sidebar.
+4.  Under **Build and deployment** > **Branch**, select `main` and click **Save**.
+5.  Your app will be live at `https://<your-username>.github.io/<repo-name>/`.
+
