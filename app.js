@@ -155,6 +155,12 @@ function renderLists() {
 }
 
 async function fetchServerTracks() {
+    if (window.location.protocol === 'file:') {
+        noServerTracksMsg.innerHTML = "Server tracks disabled.<br><small>Cannot load files when opening index.html directly. Please use a local server (python3 server.py).</small>";
+        noServerTracksMsg.style.display = 'block';
+        return;
+    }
+
     try {
         let files = [];
         try {
@@ -170,7 +176,7 @@ async function fetchServerTracks() {
             }
         } catch (apiError) {
             console.log("API failed, trying static list.json fallback...", apiError);
-            // Fallback to static JSON list (GitHub Pages)
+            // Fallback to static JSON list (GitHub Pages or standard http server)
             const staticResponse = await fetch('tracks/list.json');
             if (!staticResponse.ok) throw new Error("Static list not found");
             files = await staticResponse.json();
@@ -179,6 +185,7 @@ async function fetchServerTracks() {
         serverTrackList.innerHTML = '';
         if (!files || files.length === 0) {
             noServerTracksMsg.style.display = 'block';
+            noServerTracksMsg.textContent = "No tracks found in tracks/list.json.";
         } else {
             noServerTracksMsg.style.display = 'none';
             files.forEach(filepath => {
@@ -197,7 +204,8 @@ async function fetchServerTracks() {
 
     } catch (e) {
         console.warn("Could not fetch tracks (neither API nor static list work)", e);
-        noServerTracksMsg.textContent = "Could not connect to server or find track list.";
+        noServerTracksMsg.innerHTML = "Could not load tracks.<br><small>Make sure 'server.py' is running or 'tracks/list.json' exists.</small>";
+        noServerTracksMsg.style.display = 'block';
     }
 }
 

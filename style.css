@@ -46,11 +46,22 @@ html {
 #toggle-controls {
     background: none;
     border: none;
-    font-size: 1.5rem;
+    font-size: 2rem;
+    /* Larger icon */
     line-height: 1;
     cursor: pointer;
     color: #666;
-    padding: 0 5px;
+    padding: 5px 15px;
+    /* Bigger hit area */
+    margin-right: -10px;
+    /* Align better with edge */
+    display: flex;
+    /* Better centering */
+    align-items: center;
+    justify-content: center;
+    height: 40px;
+    /* Min touch target height */
+    width: 40px;
 }
 
 #controls.minimized #toggle-controls {
