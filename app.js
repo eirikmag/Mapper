@@ -282,3 +282,29 @@ toggleBtn.addEventListener('click', () => {
         toggleBtn.title = "Minimize";
     }
 });
+
+// 5. GPS / Geolocation
+const locateBtn = document.getElementById('locate-btn');
+let userLocationLayer = null;
+
+locateBtn.addEventListener('click', () => {
+    locateBtn.textContent = '⏳'; // Loading state
+    map.locate({ setView: true, maxZoom: 16 });
+});
+
+map.on('locationfound', (e) => {
+    locateBtn.textContent = '📍';
+    if (userLocationLayer) {
+        map.removeLayer(userLocationLayer);
+    }
+    // Add a circle to show accuracy and a marker for position
+    userLocationLayer = L.layerGroup([
+        L.circle(e.latlng, e.accuracy / 2, { weight: 1, color: 'blue', fillColor: '#cacaca', fillOpacity: 0.2 }),
+        L.circleMarker(e.latlng, { radius: 8, color: '#fff', fillColor: '#2A93EE', fillOpacity: 1, weight: 2 })
+    ]).addTo(map);
+});
+
+map.on('locationerror', (e) => {
+    locateBtn.textContent = '📍';
+    alert("Could not access location: " + e.message);
+});

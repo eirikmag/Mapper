@@ -37,31 +37,45 @@ html {
     align-items: center;
 }
 
+.header-controls {
+    display: flex;
+    align-items: center;
+}
+
 #controls h1 {
     margin: 0;
     font-size: 1.2rem;
     color: #333;
 }
 
-#toggle-controls {
+#toggle-controls,
+#locate-btn {
     background: none;
     border: none;
-    font-size: 2rem;
-    /* Larger icon */
     line-height: 1;
     cursor: pointer;
     color: #666;
-    padding: 5px 15px;
-    /* Bigger hit area */
-    margin-right: -10px;
-    /* Align better with edge */
     display: flex;
-    /* Better centering */
     align-items: center;
     justify-content: center;
     height: 40px;
-    /* Min touch target height */
     width: 40px;
+}
+
+#toggle-controls {
+    font-size: 2rem;
+    padding: 5px 15px;
+    margin-right: -10px;
+}
+
+#locate-btn {
+    font-size: 1.5rem;
+    margin-right: 5px;
+}
+
+#locate-btn:hover,
+#toggle-controls:hover {
+    color: #333;
 }
 
 #controls.minimized #toggle-controls {
