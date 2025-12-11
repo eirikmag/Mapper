@@ -30,84 +30,166 @@ L.control.layers(baseMaps, overlayMaps).addTo(map);
 
 // 3. GPX Storage and Management
 const STORAGE_KEY = 'gpx_tracks';
-let tracks = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-const loadedLayers = {}; // Keep track of Leaflet layers by filename
+let localTracks = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+const loadedLayers = {}; // Key: filename/url, Value: Leaflet Layer
 
-// Initialize UI
+// UI Elements
 const inputElement = document.getElementById('gpx-upload');
-const trackListElement = document.getElementById('track-list');
+const serverTrackList = document.getElementById('server-track-list');
+const localTrackList = document.getElementById('local-track-list');
 const clearAllBtn = document.getElementById('clear-all-btn');
+const noServerTracksMsg = document.getElementById('no-server-tracks');
 
-function saveTracks() {
+// --- Helper Functions ---
+
+function saveLocalTracks() {
     try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(tracks));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(localTracks));
     } catch (e) {
-        alert("Storage full! Could not save track. Please delete some old tracks.");
+        alert("Storage full! Could not save track.");
     }
 }
 
-function addTrackToMap(filename, gpxContent) {
-    if (loadedLayers[filename]) return; // Already on map
+// Add track to map
+// urlOrContent: can be a URL (for server tracks) or raw XML string (for local tracks)
+// id: unique identifier for the track
+function loadTrackLayer(id, urlOrContent, isLocal) {
+    if (loadedLayers[id]) return; // Already loaded
 
-    const gpxLayer = new L.GPX(gpxContent, {
+    // If it's content, we need to handle it slightly differently depending on usage,
+    // but leaflet-gpx handles url or string content automatically usually.
+    // However, for local content strings, we pass string. For server, we pass URL.
+
+    // Note: leaflet-gpx creates a layer but doesn't add it to map until we call .addTo(map)
+    // We will control .addTo(map) based on visibility state.
+
+    const gpxOptions = {
         async: true,
         marker_options: {
             startIconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet-gpx/1.7.0/pin-icon-start.png',
             endIconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet-gpx/1.7.0/pin-icon-end.png',
             shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet-gpx/1.7.0/pin-shadow.png'
         }
-    }).on('loaded', function (e) {
-        map.fitBounds(e.target.getBounds());
-    }).addTo(map);
+    };
 
-    loadedLayers[filename] = gpxLayer;
+    const layer = new L.GPX(urlOrContent, gpxOptions)
+        .on('loaded', function (e) {
+            // Optional: fit bounds only if it's the first time loading or user requested
+            // For now, let's not auto-zoom on every refresh, maybe just on upload.
+            // But for this simple app, auto-zoom on load is okay if it's just one.
+            // If many, it might be chaotic. Let's auto-zoom only for newly uploaded local files.
+        });
+
+    loadedLayers[id] = layer;
+    return layer;
 }
 
-function removeTrack(filename) {
-    // Remove from map
-    if (loadedLayers[filename]) {
-        map.removeLayer(loadedLayers[filename]);
-        delete loadedLayers[filename];
+function toggleTrackVisibility(id, isVisible) {
+    const layer = loadedLayers[id];
+    if (!layer) return;
+
+    if (isVisible) {
+        layer.addTo(map);
+    } else {
+        map.removeLayer(layer);
     }
-    // Remove from storage
-    delete tracks[filename];
-    saveTracks();
-    // Update UI
-    renderTrackList();
 }
 
-function renderTrackList() {
-    trackListElement.innerHTML = '';
-    const filenames = Object.keys(tracks);
+// --- UI Rendering ---
 
-    if (filenames.length === 0) {
-        trackListElement.innerHTML = '<li style="color:#999; font-style:italic;">No tracks loaded</li>';
+function createTrackListItem(name, id, isLocal) {
+    const li = document.createElement('li');
+
+    // Checkbox State: Default to checked for now, or could store preference.
+    // simpler: default checked.
+    const isChecked = true;
+
+    li.innerHTML = `
+        <label>
+            <input type="checkbox" checked>
+            <span class="track-name" title="${name}">${name}</span>
+        </label>
+        ${isLocal ? '<button class="delete-btn" title="Remove track">×</button>' : ''}
+    `;
+
+    // Event Listeners
+    const checkbox = li.querySelector('input[type="checkbox"]');
+    checkbox.addEventListener('change', (e) => {
+        toggleTrackVisibility(id, e.target.checked);
+    });
+
+    if (isLocal) {
+        li.querySelector('.delete-btn').onclick = () => removeLocalTrack(name);
+    }
+
+    return li;
+}
+
+function renderLists() {
+    // 1. Local Tracks
+    localTrackList.innerHTML = '';
+    const localNames = Object.keys(localTracks);
+
+    if (localNames.length === 0) {
+        localTrackList.innerHTML = '<li class="empty-msg">No local tracks</li>';
         clearAllBtn.style.display = 'none';
-        return;
+    } else {
+        clearAllBtn.style.display = 'block';
+        localNames.forEach(name => {
+            // For local, ID is name
+            // Ensure layer is created
+            if (!loadedLayers[name]) {
+                const layer = loadTrackLayer(name, localTracks[name], true);
+                if (layer) layer.addTo(map); // Default add
+            }
+            localTrackList.appendChild(createTrackListItem(name, name, true));
+        });
     }
-
-    clearAllBtn.style.display = 'block';
-
-    filenames.forEach(filename => {
-        const li = document.createElement('li');
-        li.innerHTML = `
-            <span title="${filename}" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:180px;">${filename}</span>
-            <button class="delete-btn" title="Remove track">×</button>
-        `;
-
-        li.querySelector('.delete-btn').onclick = () => removeTrack(filename);
-        trackListElement.appendChild(li);
-    });
 }
 
-function loadSavedTracks() {
-    Object.entries(tracks).forEach(([filename, content]) => {
-        addTrackToMap(filename, content);
-    });
-    renderTrackList();
+async function fetchServerTracks() {
+    try {
+        const response = await fetch('/api/tracks');
+        if (!response.ok) throw new Error("API not found");
+        const files = await response.json();
+
+        serverTrackList.innerHTML = '';
+        if (files.length === 0) {
+            noServerTracksMsg.style.display = 'block';
+        } else {
+            noServerTracksMsg.style.display = 'none';
+            files.forEach(filepath => {
+                const filename = filepath.split('/').pop(); // Extract name
+                const id = 'server_' + filename;
+
+                // Ensure layer loaded
+                if (!loadedLayers[id]) {
+                    const layer = loadTrackLayer(id, filepath, false);
+                    if (layer) layer.addTo(map); // Default add
+                }
+
+                serverTrackList.appendChild(createTrackListItem(filename, id, false));
+            });
+        }
+
+    } catch (e) {
+        console.warn("Could not fetch server tracks (maybe running without server.py?)", e);
+        noServerTracksMsg.textContent = "Could not connect to server.";
+    }
 }
 
-// Event Listeners
+// --- Local Track Management ---
+
+function removeLocalTrack(name) {
+    if (loadedLayers[name]) {
+        map.removeLayer(loadedLayers[name]);
+        delete loadedLayers[name];
+    }
+    delete localTracks[name];
+    saveLocalTracks();
+    renderLists(); // Re-render local list
+}
+
 inputElement.addEventListener('change', function (event) {
     const files = event.target.files;
     if (!files.length) return;
@@ -116,31 +198,41 @@ inputElement.addEventListener('change', function (event) {
         const reader = new FileReader();
         reader.onload = function (e) {
             const content = e.target.result;
-            tracks[file.name] = content;
-            saveTracks();
-            addTrackToMap(file.name, content);
-            renderTrackList();
+            localTracks[file.name] = content;
+            saveLocalTracks();
+
+            // Force reload/render of this new track
+            if (loadedLayers[file.name]) {
+                map.removeLayer(loadedLayers[file.name]);
+                delete loadedLayers[file.name];
+            }
+            const layer = loadTrackLayer(file.name, content, true);
+            if (layer) {
+                layer.addTo(map);
+                layer.on('loaded', e => map.fitBounds(e.target.getBounds())); // Auto zoom on upload
+            }
+
+            renderLists();
         };
         reader.readAsText(file);
     });
-
-    // Reset input so same file can be selected again if needed
     inputElement.value = '';
 });
 
 clearAllBtn.addEventListener('click', () => {
-    if (confirm('Are you sure you want to delete all tracks?')) {
-        Object.keys(loadedLayers).forEach(filename => {
-            map.removeLayer(loadedLayers[filename]);
+    if (confirm('Delete all local tracks?')) {
+        Object.keys(localTracks).forEach(name => {
+            if (loadedLayers[name]) {
+                map.removeLayer(loadedLayers[name]);
+                delete loadedLayers[name];
+            }
         });
-        for (const prop of Object.getOwnPropertyNames(loadedLayers)) {
-            delete loadedLayers[prop];
-        }
-        tracks = {};
-        saveTracks();
-        renderTrackList();
+        localTracks = {};
+        saveLocalTracks();
+        renderLists();
     }
 });
 
-// Initial Load
-loadSavedTracks();
+// Init
+renderLists(); // Load local
+fetchServerTracks(); // Load server

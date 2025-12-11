@@ -24,11 +24,17 @@
         </div>
 
         <div id="track-list-container">
-            <h3>My Tracks</h3>
-            <ul id="track-list">
-                <!-- Tracks will be listed here -->
+            <h3>Server Tracks (Folder)</h3>
+            <ul id="server-track-list">
+                <!-- Server tracks listed here -->
             </ul>
-            <button id="clear-all-btn" class="danger-btn">Clear All Tracks</button>
+            <p id="no-server-tracks" class="empty-msg">No tracks in 'tracks/' folder.</p>
+
+            <h3>My Tracks (Local)</h3>
+            <ul id="local-track-list">
+                <!-- Local tracks listed here -->
+            </ul>
+            <button id="clear-all-btn" class="danger-btn">Clear All Local Tracks</button>
         </div>
     </div>
     <div id="map"></div>

@@ -7,9 +7,9 @@ This project is a simple web application to view Norgeskart topographic maps wit
 
 ## How to Run
 1. Open a terminal to the project directory: `/Users/eirikmagnussen/Repos/Mapper`
-2. Run the following command to start a local server:
+2. Run the custom server script (required for loading tracks from folder):
     ```bash
-    python3 -m http.server 8081
+    python3 server.py
     ```
 3. Open your web browser and navigate to:
     [http://localhost:8081](http://localhost:8081)
@@ -23,11 +23,11 @@ This project is a simple web application to view Norgeskart topographic maps wit
 ### 2. Properties Overlay
 - Toggle "Property Borders" in the layer control (top-right).
 
-### 3. Upload & Manage GPX
-- **Upload**: Click "Choose Files" to upload one or more `.gpx` files.
-- **Auto-Save**: Tracks are automatically saved to your browser's local storage. They will reappear when you reload the page.
-- **Track List**: See all your loaded tracks in the sidebar.
-- **Delete**: Click the `×` next to a track to remove it, or "Clear All Tracks" to reset.
+### 3. Track Management
+- **Server Tracks**: Place `.gpx` files in the `tracks/` folder. They will automatically appear in the "Server Tracks" list.
+- **Local Tracks**: Upload files via the "Choose Files" button. These are saved in your browser.
+- **Visibility**: Use the checkboxes to show/hide specific tracks without deleting them.
+- **Deletion**: Local tracks can be deleted permanently. Server tracks must be removed from the folder.
 
 
 ## Troubleshooting
