@@ -17,7 +17,7 @@ This project is a simple web application to view Norgeskart topographic maps wit
 ## Features & Verification
 
 ### 1. View the Map
-- Loads Norgeskart Topo as the base map.
+- **Switch Layers**: Use the layer control (top-right) to switch between **Topographic Map** and **Aerial Photo**.
 - Displays property borders (Matrikkelen) when zoomed in.
 
 ### 2. Properties Overlay

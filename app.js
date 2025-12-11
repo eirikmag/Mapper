@@ -7,6 +7,12 @@ const topoLayer = L.tileLayer('https://cache.kartverket.no/v1/wmts/1.0.0/topo/de
     maxZoom: 18
 }).addTo(map);
 
+// 1b. Aerial Map Layer (Norge i bilder)
+const aerialLayer = L.tileLayer('https://opencache.statkart.no/gatekeeper/gk/gk.open_nib_web_mercator_wmts_v2?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=Nibcache_web_mercator_v2&STYLE=default&FORMAT=image/png&TILEMATRIXSET=GoogleMapsCompatible&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}', {
+    attribution: '&copy; <a href="http://www.norgeibilder.no/">Norge i bilder</a> / <a href="http://www.kartverket.no/">Kartverket</a>',
+    maxZoom: 18
+});
+
 // 2. Property Borders Layer (Matrikkelen WMS)
 const propertyLayer = L.tileLayer.wms('https://wms.geonorge.no/skwms1/wms.matrikkel', {
     layers: 'matrikkel_WMS', // Based on GetCapabilities
@@ -19,7 +25,8 @@ const propertyLayer = L.tileLayer.wms('https://wms.geonorge.no/skwms1/wms.matrik
 
 // Layer Control
 const baseMaps = {
-    "Topographic Map": topoLayer
+    "Topographic Map": topoLayer,
+    "Aerial Photo (NiB)": aerialLayer
 };
 
 const overlayMaps = {
@@ -236,3 +243,18 @@ clearAllBtn.addEventListener('click', () => {
 // Init
 renderLists(); // Load local
 fetchServerTracks(); // Load server
+
+// 4. Toggle Controls (Minimize/Maximize)
+const toggleBtn = document.getElementById('toggle-controls');
+const controlsDiv = document.getElementById('controls');
+
+toggleBtn.addEventListener('click', () => {
+    controlsDiv.classList.toggle('minimized');
+    if (controlsDiv.classList.contains('minimized')) {
+        toggleBtn.textContent = '+';
+        toggleBtn.title = "Maximize";
+    } else {
+        toggleBtn.textContent = '−'; // Minus sign
+        toggleBtn.title = "Minimize";
+    }
+});
