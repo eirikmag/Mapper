@@ -333,11 +333,14 @@ function renderNoGoZones() {
             style: { color: '#ff0000', weight: 2, fillColor: '#ff0000', fillOpacity: 0.35 },
             onEachFeature: (feature, layer) => {
                 layer.bindTooltip("No-Go Zone (Click to delete in Edit Mode)");
-                layer.on('click', () => {
-                    if (isNoGoMode && confirm('Remove this No-Go zone?')) {
-                        savedNoGoZones.splice(index, 1);
-                        saveNoGoZonesToStorage();
-                        renderNoGoZones();
+                layer.on('click', (e) => {
+                    if (isNoGoMode) {
+                        L.DomEvent.stopPropagation(e); // Prevent map click (which would try to add a new zone)
+                        if (confirm('Remove this No-Go zone?')) {
+                            savedNoGoZones.splice(index, 1);
+                            saveNoGoZonesToStorage();
+                            renderNoGoZones();
+                        }
                     }
                 });
             }
