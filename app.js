@@ -1,4 +1,5 @@
 // Initialize map
+console.log("App v2 loaded - Gradients Enabled");
 const map = L.map('map').setView([65.0, 15.0], 5); // Approximate center of Norway
 
 // 1. Topographic Map Layer (Statens Kartverk Cache)
@@ -188,14 +189,37 @@ async function fetchServerTracks() {
             noServerTracksMsg.textContent = "No tracks found in tracks/list.json.";
         } else {
             noServerTracksMsg.style.display = 'none';
-            files.forEach(filepath => {
+            // Auto-zoom to the first track found
+            if (files.length > 0) {
+                // We need to wait for the first one to load to get bounds.
+                // Since loadTrackLayer is async/callback based for bounds, we can attach a one-time listener to it.
+                // OR, since we are iterating, we can pick the first id.
+                const firstId = 'server_' + files[0].split('/').pop();
+
+                // We'll set up a one-time listener on the map or the layer
+                // Actually simplest is to modify loadTrackLayer or do it here if possible.
+                // But the layer is created inside loadTrackLayer and data is fetched async by leaflet-gpx.
+
+                // Let's modify the creation of the first layer specifically
+            }
+
+            files.forEach((filepath, index) => {
                 const filename = filepath.split('/').pop(); // Extract name
                 const id = 'server_' + filename;
 
                 // Ensure layer loaded
                 if (!loadedLayers[id]) {
                     const layer = loadTrackLayer(id, filepath, false);
-                    if (layer) layer.addTo(map); // Default add
+                    if (layer) {
+                        layer.addTo(map);
+
+                        // If this is the first track, zoom to it once loaded
+                        if (index === 0) {
+                            layer.on('loaded', function (e) {
+                                map.fitBounds(e.target.getBounds());
+                            });
+                        }
+                    }
                 }
 
                 serverTrackList.appendChild(createTrackListItem(filename, id, false));
@@ -396,5 +420,167 @@ map.on('click', async (e) => {
         alert('Error fetching property data. Ensure server.py is running.');
     } finally {
         nogoBtn.textContent = '⛔';
+    }
+});
+
+// 7. Owner Overlay
+const ownerBtn = document.getElementById('owner-btn');
+const ownerLegend = document.getElementById('owner-legend');
+let isOwnerMode = false;
+let ownerLayer = null;
+let ownerData = null; // Cache
+
+// Create a defs container for gradients
+// We place this at the start of the body to ensure it exists
+const svgDefs = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+svgDefs.setAttribute('aria-hidden', 'true');
+svgDefs.style.position = 'absolute';
+svgDefs.style.width = '0';
+svgDefs.style.height = '0';
+svgDefs.style.overflow = 'hidden';
+document.body.appendChild(svgDefs);
+
+const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+defs.id = 'owner-gradients';
+svgDefs.appendChild(defs);
+
+function stringToColor(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    // Use golden angle approximation to distribute colors evenly and distinctly
+    // 137.508... is the golden angle in degrees
+    const hue = Math.abs((hash * 137.508) % 360);
+    // Return HSL for vibrant, distinct colors (Saturation 80%, Lightness 45%)
+    return `hsl(${hue}, 80%, 45%)`;
+}
+
+function ensureGradient(owner, color) {
+    const defs = document.getElementById('owner-gradients');
+    // Sanitize owner name for ID
+    const safeId = 'grad-' + owner.replace(/[^a-zA-Z0-9]/g, '_');
+
+    if (document.getElementById(safeId)) return safeId;
+
+    const grad = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
+    grad.setAttribute('id', safeId);
+    grad.setAttribute('x1', '0%');
+    grad.setAttribute('y1', '0%');
+    grad.setAttribute('x2', '100%');
+    grad.setAttribute('y2', '100%');
+
+    // Create a nice gradient: Color -> Lighter version -> Color
+    const stop1 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+    stop1.setAttribute('offset', '0%');
+    stop1.setAttribute('stop-color', color);
+    stop1.setAttribute('stop-opacity', '0.7');
+
+    const stop2 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+    stop2.setAttribute('offset', '50%');
+    stop2.setAttribute('stop-color', color);
+    stop2.setAttribute('stop-opacity', '0.1'); // lighter/transparent middle
+
+    const stop3 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+    stop3.setAttribute('offset', '100%');
+    stop3.setAttribute('stop-color', color);
+    stop3.setAttribute('stop-opacity', '0.7');
+
+    grad.appendChild(stop1);
+    grad.appendChild(stop2);
+    grad.appendChild(stop3);
+    defs.appendChild(grad);
+
+    return safeId;
+}
+
+function renderOwnerLegend(features) {
+    ownerLegend.innerHTML = '<strong>Owners</strong>';
+    const owners = new Set();
+    features.forEach(f => {
+        if (f.properties && f.properties.eier) owners.add(f.properties.eier);
+    });
+
+    // Sort owners alphabetically
+    Array.from(owners).sort().forEach(owner => {
+        const color = stringToColor(owner);
+        // Ensure gradient exists just in case, though usually main loop does it
+        ensureGradient(owner, color);
+
+        const div = document.createElement('div');
+        div.className = 'legend-item';
+        // Show solid block for legend
+        div.innerHTML = `<span class="legend-color" style="background-color: ${color}"></span>${owner}`;
+        ownerLegend.appendChild(div);
+    });
+}
+
+ownerBtn.addEventListener('click', async () => {
+    isOwnerMode = !isOwnerMode;
+    ownerBtn.classList.toggle('active', isOwnerMode);
+
+    if (isOwnerMode) {
+        ownerLegend.style.display = 'block';
+        if (!ownerLayer) {
+            // Fetch data
+            ownerBtn.textContent = '⏳';
+            try {
+                // Try static file first (works without server)
+                let res = await fetch('owners_polygons.geo.json');
+                if (!res.ok) {
+                    console.warn("Static polygons not found, trying API...");
+                    res = await fetch('/api/owner_properties');
+                }
+
+                if (!res.ok) throw new Error("Failed to fetch owners");
+                ownerData = await res.json();
+
+                if (ownerData && ownerData.features) {
+                    ownerLayer = L.geoJSON(ownerData, {
+                        renderer: L.svg(),
+                        style: function (feature) {
+                            const owner = feature.properties.eier;
+                            const color = stringToColor(owner);
+                            const gradId = ensureGradient(owner, color);
+
+                            return {
+                                color: 'black',        // Border color - Changed to black to verify update
+                                weight: 2,
+                                opacity: 1,
+                                fillColor: `url(#${gradId})`, // Helper for SVG patterns
+                                fillOpacity: 1 // Must be 1 so gradient opacity controls it
+                            };
+                        },
+                        onEachFeature: function (feature, layer) {
+                            if (feature.properties && feature.properties.eier) {
+                                layer.bindPopup(`<strong>Owner:</strong> ${feature.properties.eier}<br><strong>Matrikkel:</strong> ${feature.properties.matrikkelnummer}`);
+                            }
+                        }
+                    }).addTo(map);
+
+                    renderOwnerLegend(ownerData.features);
+
+                    // Fit bounds to show all properties
+                    if (ownerLayer.getLayers().length > 0) {
+                        map.fitBounds(ownerLayer.getBounds());
+                    }
+                }
+            } catch (e) {
+                console.error(e);
+                alert("Could not load owner properties. Ensure server.py is running.");
+                isOwnerMode = false;
+                ownerBtn.classList.remove('active');
+                ownerLegend.style.display = 'none';
+            } finally {
+                ownerBtn.textContent = '👥';
+            }
+        } else {
+            ownerLayer.addTo(map);
+        }
+    } else {
+        ownerLegend.style.display = 'none';
+        if (ownerLayer) {
+            map.removeLayer(ownerLayer);
+        }
     }
 });

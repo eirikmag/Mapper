@@ -75,11 +75,33 @@ html {
     margin-right: 5px;
 }
 
-#nogo-btn.active {
+#nogo-btn.active,
+#owner-btn.active {
     background-color: #ffebeb;
     border-radius: 4px;
     color: red;
     border: 1px solid red;
+}
+
+#owner-btn.active {
+    background-color: #e6f7ff;
+    color: #007bff;
+    border-color: #007bff;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    font-size: 0.85rem;
+    margin-bottom: 4px;
+}
+.legend-color {
+    width: 12px;
+    height: 12px;
+    display: inline-block;
+    margin-right: 8px;
+    border-radius: 2px;
+    border: 1px solid rgba(0,0,0,0.2);
 }
 
 #locate-btn:hover,
