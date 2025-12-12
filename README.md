@@ -1,12 +1,22 @@
 # Norgeskart GPX Viewer
+## Goal & Purpose
+The primary purpose of this tool is to facilitate the **planning of new cross-country ski tracks**. 
 
+It serves as a visualization aid to:
+1.  **Map Proposed Routes**: Overlay GPX tracks of potential new ski trails on top of detailed topographic and satellite maps.
+2.  **Identify Property Owners**: Visualize property boundaries (Matrikkelen) and identify the specific landowners (e.g., "Jevnaker Almenning", private owners) for each segment of the track.
+3.  **Coordinate Permissions**: Use the color-coded owner overlay to quickly see which areas are cleared for use and which owners need to be contacted for discussion and permission.
+
+This overview helps streamline the process of establishing new recreational routes by clearly connecting geographic paths with land ownership data.
+
+## Overview
 This project is a simple web application to view Norgeskart topographic maps with property borders (tomtegrenser) and overlay GPX files.
 
 ## Prerequisites
 - **Python 3**: To run the local server.
 
 ## How to Run
-1. Open a terminal to the project directory: `/Users/eirikmagnussen/Repos/Mapper`
+1. Open a terminal to the project directory: `/Users/eirikmag/Repos/Mapper`
 2. Run the custom server script (required for loading tracks from folder):
     ```bash
     python3 server.py
