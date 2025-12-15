@@ -2,6 +2,10 @@
 console.log("App v2 loaded - Gradients Enabled");
 const map = L.map('map').setView([65.0, 15.0], 5); // Approximate center of Norway
 
+// Custom Pane for GPX Tracks to ensure they are on top
+map.createPane('gpxPane');
+map.getPane('gpxPane').style.zIndex = 650; // Above markers (600) and overlays (400)
+
 // 1. Topographic Map Layer (Statens Kartverk Cache)
 const topoLayer = L.tileLayer('https://cache.kartverket.no/v1/wmts/1.0.0/topo/default/webmercator/{z}/{y}/{x}.png', {
     attribution: '&copy; <a href="http://www.kartverket.no/">Kartverket</a>',
@@ -73,10 +77,16 @@ function loadTrackLayer(id, urlOrContent, isLocal) {
 
     const gpxOptions = {
         async: true,
+        polyline_options: {
+            pane: 'gpxPane',
+            color: 'blue',
+            weight: 5
+        },
         marker_options: {
             startIconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet-gpx/1.7.0/pin-icon-start.png',
             endIconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet-gpx/1.7.0/pin-icon-end.png',
-            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet-gpx/1.7.0/pin-shadow.png'
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet-gpx/1.7.0/pin-shadow.png',
+            pane: 'gpxPane' // Also put markers on top
         }
     };
 
