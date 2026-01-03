@@ -68,13 +68,6 @@ function saveLocalTracks() {
 function loadTrackLayer(id, urlOrContent, isLocal) {
     if (loadedLayers[id]) return; // Already loaded
 
-    // If it's content, we need to handle it slightly differently depending on usage,
-    // but leaflet-gpx handles url or string content automatically usually.
-    // However, for local content strings, we pass string. For server, we pass URL.
-
-    // Note: leaflet-gpx creates a layer but doesn't add it to map until we call .addTo(map)
-    // We will control .addTo(map) based on visibility state.
-
     const gpxOptions = {
         async: true,
         polyline_options: {
@@ -93,9 +86,6 @@ function loadTrackLayer(id, urlOrContent, isLocal) {
     const layer = new L.GPX(urlOrContent, gpxOptions)
         .on('loaded', function (e) {
             // Optional: fit bounds only if it's the first time loading or user requested
-            // For now, let's not auto-zoom on every refresh, maybe just on upload.
-            // But for this simple app, auto-zoom on load is okay if it's just one.
-            // If many, it might be chaotic. Let's auto-zoom only for newly uploaded local files.
         });
 
     loadedLayers[id] = layer;
@@ -118,8 +108,7 @@ function toggleTrackVisibility(id, isVisible) {
 function createTrackListItem(name, id, isLocal) {
     const li = document.createElement('li');
 
-    // Checkbox State: Default to checked for now, or could store preference.
-    // simpler: default checked.
+    // Checkbox State: Default to checked
     const isChecked = true;
 
     li.innerHTML = `
@@ -154,8 +143,6 @@ function renderLists() {
     } else {
         clearAllBtn.style.display = 'block';
         localNames.forEach(name => {
-            // For local, ID is name
-            // Ensure layer is created
             if (!loadedLayers[name]) {
                 const layer = loadTrackLayer(name, localTracks[name], true);
                 if (layer) layer.addTo(map); // Default add
@@ -175,11 +162,9 @@ async function fetchServerTracks() {
     try {
         let files = [];
         try {
-            // Try dynamic API first (local python server)
             const response = await fetch('/api/tracks');
             if (response.ok) {
                 const text = await response.text();
-                // If server returns HTML (e.g. standard file listing or 404 page), treat as fail
                 if (text.trim().startsWith('<')) throw new Error("API returned HTML");
                 files = JSON.parse(text);
             } else {
@@ -187,7 +172,6 @@ async function fetchServerTracks() {
             }
         } catch (apiError) {
             console.log("API failed, trying static list.json fallback...", apiError);
-            // Fallback to static JSON list (GitHub Pages or standard http server)
             const staticResponse = await fetch('tracks/list.json');
             if (!staticResponse.ok) throw new Error("Static list not found");
             files = await staticResponse.json();
@@ -199,31 +183,14 @@ async function fetchServerTracks() {
             noServerTracksMsg.textContent = "No tracks found in tracks/list.json.";
         } else {
             noServerTracksMsg.style.display = 'none';
-            // Auto-zoom to the first track found
-            if (files.length > 0) {
-                // We need to wait for the first one to load to get bounds.
-                // Since loadTrackLayer is async/callback based for bounds, we can attach a one-time listener to it.
-                // OR, since we are iterating, we can pick the first id.
-                const firstId = 'server_' + files[0].split('/').pop();
-
-                // We'll set up a one-time listener on the map or the layer
-                // Actually simplest is to modify loadTrackLayer or do it here if possible.
-                // But the layer is created inside loadTrackLayer and data is fetched async by leaflet-gpx.
-
-                // Let's modify the creation of the first layer specifically
-            }
-
             files.forEach((filepath, index) => {
-                const filename = filepath.split('/').pop(); // Extract name
+                const filename = filepath.split('/').pop();
                 const id = 'server_' + filename;
 
-                // Ensure layer loaded
                 if (!loadedLayers[id]) {
                     const layer = loadTrackLayer(id, filepath, false);
                     if (layer) {
                         layer.addTo(map);
-
-                        // If this is the first track, zoom to it once loaded
                         if (index === 0) {
                             layer.on('loaded', function (e) {
                                 map.fitBounds(e.target.getBounds());
@@ -231,7 +198,6 @@ async function fetchServerTracks() {
                         }
                     }
                 }
-
                 serverTrackList.appendChild(createTrackListItem(filename, id, false));
             });
         }
@@ -252,7 +218,7 @@ function removeLocalTrack(name) {
     }
     delete localTracks[name];
     saveLocalTracks();
-    renderLists(); // Re-render local list
+    renderLists();
 }
 
 inputElement.addEventListener('change', function (event) {
@@ -266,7 +232,6 @@ inputElement.addEventListener('change', function (event) {
             localTracks[file.name] = content;
             saveLocalTracks();
 
-            // Force reload/render of this new track
             if (loadedLayers[file.name]) {
                 map.removeLayer(loadedLayers[file.name]);
                 delete loadedLayers[file.name];
@@ -274,7 +239,7 @@ inputElement.addEventListener('change', function (event) {
             const layer = loadTrackLayer(file.name, content, true);
             if (layer) {
                 layer.addTo(map);
-                layer.on('loaded', e => map.fitBounds(e.target.getBounds())); // Auto zoom on upload
+                layer.on('loaded', e => map.fitBounds(e.target.getBounds()));
             }
 
             renderLists();
@@ -299,8 +264,8 @@ clearAllBtn.addEventListener('click', () => {
 });
 
 // Init
-renderLists(); // Load local
-fetchServerTracks(); // Load server
+renderLists();
+fetchServerTracks();
 
 // 4. Toggle Controls (Minimize/Maximize)
 const toggleBtn = document.getElementById('toggle-controls');
@@ -312,62 +277,86 @@ toggleBtn.addEventListener('click', () => {
         toggleBtn.textContent = '+';
         toggleBtn.title = "Maximize";
     } else {
-        toggleBtn.textContent = '−'; // Minus sign
+        toggleBtn.textContent = '−';
         toggleBtn.title = "Minimize";
     }
 });
 
 // 5. GPS / Geolocation
 const locateBtn = document.getElementById('locate-btn');
+const recenterBtn = document.getElementById('recenter-btn');
 let userLocationLayer = null;
 let isTracking = false;
 let userPath = [];
+let shouldAutoCenter = true;
+let currentLatLng = null;
+
 let userPathLayer = L.polyline([], {
     color: '#28a745',
     weight: 5,
     opacity: 0.8,
-    pane: 'gpxPane' // Keep it above property borders
+    pane: 'gpxPane'
 }).addTo(map);
+
+function setAutoCenter(active) {
+    shouldAutoCenter = active;
+    if (recenterBtn) recenterBtn.classList.toggle('active', active);
+}
 
 locateBtn.addEventListener('click', () => {
     if (isTracking) {
-        // Stop tracking
         map.stopLocate();
         isTracking = false;
         locateBtn.textContent = '📍';
         locateBtn.classList.remove('active');
+        if (recenterBtn) recenterBtn.style.display = 'none';
         if (userLocationLayer) map.removeLayer(userLocationLayer);
-        // Keep the green line on map? Or clear it? 
-        // User asked to trace "when active", so let's keep it visible until next start.
     } else {
-        // Start tracking
         isTracking = true;
-        userPath = []; // Reset path for new session
+        userPath = [];
         userPathLayer.setLatLngs([]);
+        setAutoCenter(true);
+        if (recenterBtn) recenterBtn.style.display = 'flex';
 
         locateBtn.textContent = '🛰️';
         locateBtn.classList.add('active');
         map.locate({
             watch: true,
-            setView: true,
+            setView: false,
             maxZoom: 16,
             enableHighAccuracy: true
         });
     }
 });
 
+if (recenterBtn) {
+    recenterBtn.addEventListener('click', () => {
+        setAutoCenter(true);
+        if (currentLatLng) {
+            map.panTo(currentLatLng);
+        }
+    });
+}
+
+map.on('dragstart zoomstart mousedown touchstart', () => {
+    if (isTracking) setAutoCenter(false);
+});
+
 map.on('locationfound', (e) => {
     if (!isTracking) return;
+    currentLatLng = e.latlng;
 
-    // Add point to trace
     userPath.push(e.latlng);
     userPathLayer.setLatLngs(userPath);
+
+    if (shouldAutoCenter) {
+        map.panTo(e.latlng);
+    }
 
     if (userLocationLayer) {
         map.removeLayer(userLocationLayer);
     }
 
-    // Create a directional marker if heading is available
     const heading = e.heading || 0;
     const hasHeading = e.heading !== null && e.heading !== undefined;
 
@@ -390,6 +379,7 @@ map.on('locationerror', (e) => {
     isTracking = false;
     locateBtn.textContent = '📍';
     locateBtn.classList.remove('active');
+    if (recenterBtn) recenterBtn.style.display = 'none';
     alert("Could not access location: " + e.message);
 });
 
@@ -398,24 +388,20 @@ const ownerBtn = document.getElementById('owner-btn');
 const ownerLegend = document.getElementById('owner-legend');
 let isOwnerMode = false;
 let ownerLayer = null;
-let ownerData = null; // Cache
+let ownerData = null;
 let matrikkelStatus = {};
 
 async function fetchMatrikkelStatus() {
     try {
-        // Try fetching the static file directly first (works on GitHub Pages and local server)
         let res = await fetch('matrikkel_status.json');
-
-        // If that fails or isn't a valid JSON, try the API
         if (!res.ok) {
             res = await fetch('/api/load_status');
         }
-
         if (res.ok) {
             matrikkelStatus = await res.json();
         }
     } catch (e) {
-        console.warn("Could not load matrikkel status, might be first run or static hosting without file.", e);
+        console.warn("Could not load matrikkel status", e);
     }
 }
 
@@ -426,13 +412,11 @@ async function setMatrikkelStatus(id, status) {
         matrikkelStatus[id] = status;
     }
 
-    // Update layer styles
     if (ownerLayer) {
         ownerLayer.setStyle(ownerLayer.options.style);
     }
     if (ownerData) renderOwnerLegend(ownerData.features);
 
-    // Save to server
     try {
         await fetch('/api/save_status', {
             method: 'POST',
@@ -445,8 +429,6 @@ async function setMatrikkelStatus(id, status) {
 }
 window.setMatrikkelStatus = setMatrikkelStatus;
 
-// Create a defs container for gradients
-// We place this at the start of the body to ensure it exists
 const svgDefs = document.createElementNS("http://www.w3.org/2000/svg", "svg");
 svgDefs.setAttribute('aria-hidden', 'true');
 svgDefs.style.position = 'absolute';
@@ -464,16 +446,12 @@ function stringToColor(str) {
     for (let i = 0; i < str.length; i++) {
         hash = str.charCodeAt(i) + ((hash << 5) - hash);
     }
-    // Use golden angle approximation to distribute colors evenly and distinctly
-    // 137.508... is the golden angle in degrees
     const hue = Math.abs((hash * 137.508) % 360);
-    // Return HSL for vibrant, distinct colors (Saturation 80%, Lightness 45%)
     return `hsl(${hue}, 80%, 45%)`;
 }
 
 function ensureGradient(owner, color) {
     const defs = document.getElementById('owner-gradients');
-    // Sanitize owner name for ID
     const safeId = 'grad-' + owner.replace(/[^a-zA-Z0-9]/g, '_');
 
     if (document.getElementById(safeId)) return safeId;
@@ -485,7 +463,6 @@ function ensureGradient(owner, color) {
     grad.setAttribute('x2', '100%');
     grad.setAttribute('y2', '100%');
 
-    // Create a nice gradient: Color -> Lighter version -> Color
     const stop1 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
     stop1.setAttribute('offset', '0%');
     stop1.setAttribute('stop-color', color);
@@ -494,7 +471,7 @@ function ensureGradient(owner, color) {
     const stop2 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
     stop2.setAttribute('offset', '50%');
     stop2.setAttribute('stop-color', color);
-    stop2.setAttribute('stop-opacity', '0.1'); // lighter/transparent middle
+    stop2.setAttribute('stop-opacity', '0.1');
 
     const stop3 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
     stop3.setAttribute('offset', '100%');
@@ -512,7 +489,6 @@ function ensureGradient(owner, color) {
 function renderOwnerLegend(features) {
     ownerLegend.innerHTML = '<strong>Owners (Click to zoom)</strong>';
 
-    // Group properties by owner
     const ownerGroups = {};
     features.forEach(f => {
         const owner = f.properties.eier;
@@ -521,20 +497,17 @@ function renderOwnerLegend(features) {
         ownerGroups[owner].push(f.properties.matrikkelnummer);
     });
 
-    // Sort owners alphabetically
     Object.keys(ownerGroups).sort().forEach(owner => {
         const matrikkels = ownerGroups[owner];
-
-        // Determine the overall status for this owner
-        let color = '#9d7edb'; // Default Purple
+        let color = '#9d7edb';
 
         const hasConflict = matrikkels.some(m => matrikkelStatus[m] === 'conflict');
         const allGood = matrikkels.every(m => matrikkelStatus[m] === 'good');
 
         if (hasConflict) {
-            color = '#dc3545'; // Red if any conflict
+            color = '#dc3545';
         } else if (allGood) {
-            color = '#28a745'; // Green only if all are good
+            color = '#28a745';
         }
 
         const div = document.createElement('div');
@@ -572,12 +545,10 @@ ownerBtn.addEventListener('click', async () => {
 
     if (isOwnerMode) {
         ownerLegend.style.display = 'block';
-        await fetchMatrikkelStatus(); // Load latest status
+        await fetchMatrikkelStatus();
         if (!ownerLayer) {
-            // Fetch data
             ownerBtn.textContent = '⏳';
             try {
-                // Try static file first (works without server)
                 let res = await fetch('owners_polygons.geo.json');
                 if (!res.ok) {
                     console.warn("Static polygons not found, trying API...");
@@ -600,12 +571,11 @@ ownerBtn.addEventListener('click', async () => {
                                 return { color: '#dc3545', weight: 4, opacity: 1, fillColor: '#dc3545', fillOpacity: 0.5 };
                             }
 
-                            // Default purple color for everything else
                             const purpleColor = '#9d7edb';
                             const gradId = ensureGradient('default-purple', purpleColor);
 
                             return {
-                                color: '#4b0082',        // Deep indigo border
+                                color: '#4b0082',
                                 weight: 2,
                                 opacity: 0.8,
                                 fillColor: `url(#${gradId})`,
@@ -636,7 +606,6 @@ ownerBtn.addEventListener('click', async () => {
 
                     renderOwnerLegend(ownerData.features);
 
-                    // Fit bounds to show all properties
                     if (ownerLayer.getLayers().length > 0) {
                         map.fitBounds(ownerLayer.getBounds());
                     }

@@ -28,7 +28,6 @@ html {
 #controls.minimized {
     padding: 10px 15px;
     max-width: 200px;
-    /* Optional: make it even smaller */
 }
 
 .header-row {
@@ -233,7 +232,6 @@ html {
 
 #controls.minimized #toggle-controls {
     transform: rotate(180deg);
-    /* Optional visual cue */
 }
 
 /* Hide content when controls are minimized */
@@ -318,7 +316,6 @@ li input[type="checkbox"] {
     margin: 0 0 10px 0;
 }
 
-
 .delete-btn {
     background: none;
     border: none;
@@ -345,4 +342,36 @@ li input[type="checkbox"] {
 
 .danger-btn:hover {
     background: #a30000;
+}
+
+/* Recenter Button */
+#recenter-btn {
+    position: fixed;
+    bottom: 25px;
+    right: 25px;
+    z-index: 1000;
+    background: white;
+    border: 2px solid rgba(0, 0, 0, 0.2);
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    font-size: 1.8rem;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+#recenter-btn:hover {
+    background-color: #f8f9fa;
+    transform: scale(1.1);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+#recenter-btn.active {
+    background-color: #2A93EE;
+    color: white;
+    border-color: #2A93EE;
 }
