@@ -439,6 +439,50 @@ const ownerLegend = document.getElementById('owner-legend');
 let isOwnerMode = false;
 let ownerLayer = null;
 let ownerData = null; // Cache
+let matrikkelStatus = {};
+
+async function fetchMatrikkelStatus() {
+    try {
+        // Try fetching the static file directly first (works on GitHub Pages and local server)
+        let res = await fetch('matrikkel_status.json');
+
+        // If that fails or isn't a valid JSON, try the API
+        if (!res.ok) {
+            res = await fetch('/api/load_status');
+        }
+
+        if (res.ok) {
+            matrikkelStatus = await res.json();
+        }
+    } catch (e) {
+        console.warn("Could not load matrikkel status, might be first run or static hosting without file.", e);
+    }
+}
+
+async function setMatrikkelStatus(id, status) {
+    if (status === 'reset') {
+        delete matrikkelStatus[id];
+    } else {
+        matrikkelStatus[id] = status;
+    }
+
+    // Update layer styles
+    if (ownerLayer) {
+        ownerLayer.setStyle(ownerLayer.options.style);
+    }
+
+    // Save to server
+    try {
+        await fetch('/api/save_status', {
+            method: 'POST',
+            body: JSON.stringify(matrikkelStatus),
+            headers: { 'Content-Type': 'application/json' }
+        });
+    } catch (e) {
+        console.error("Failed to save status", e);
+    }
+}
+window.setMatrikkelStatus = setMatrikkelStatus;
 
 // Create a defs container for gradients
 // We place this at the start of the body to ensure it exists
@@ -531,6 +575,7 @@ ownerBtn.addEventListener('click', async () => {
 
     if (isOwnerMode) {
         ownerLegend.style.display = 'block';
+        await fetchMatrikkelStatus(); // Load latest status
         if (!ownerLayer) {
             // Fetch data
             ownerBtn.textContent = '⏳';
@@ -549,21 +594,45 @@ ownerBtn.addEventListener('click', async () => {
                     ownerLayer = L.geoJSON(ownerData, {
                         renderer: L.svg(),
                         style: function (feature) {
+                            const mat_id = feature.properties.matrikkelnummer;
+                            const status = matrikkelStatus[mat_id];
+
+                            if (status === 'good') {
+                                return { color: '#28a745', weight: 3, opacity: 1, fillColor: '#28a745', fillOpacity: 0.4 };
+                            } else if (status === 'conflict') {
+                                return { color: '#dc3545', weight: 4, opacity: 1, fillColor: '#dc3545', fillOpacity: 0.5 };
+                            }
+
                             const owner = feature.properties.eier;
                             const color = stringToColor(owner);
                             const gradId = ensureGradient(owner, color);
 
                             return {
-                                color: 'black',        // Border color - Changed to black to verify update
+                                color: 'black',        // Border color
                                 weight: 2,
-                                opacity: 1,
+                                opacity: 0.8,
                                 fillColor: `url(#${gradId})`, // Helper for SVG patterns
                                 fillOpacity: 1 // Must be 1 so gradient opacity controls it
                             };
                         },
                         onEachFeature: function (feature, layer) {
                             if (feature.properties && feature.properties.eier) {
-                                layer.bindPopup(`<strong>Owner:</strong> ${feature.properties.eier}<br><strong>Matrikkel:</strong> ${feature.properties.matrikkelnummer}`);
+                                const mat_id = feature.properties.matrikkelnummer;
+                                const currentStatus = matrikkelStatus[mat_id] || 'None';
+
+                                const popupContent = document.createElement('div');
+                                popupContent.className = 'matrikkel-popup';
+                                popupContent.innerHTML = `
+                                    <strong>Owner:</strong> ${feature.properties.eier}<br>
+                                    <strong>Matrikkel:</strong> ${mat_id}<br>
+                                    <strong>Status:</strong> <span class="status-badge ${currentStatus}">${currentStatus}</span>
+                                    <div class="status-controls">
+                                        <button class="status-btn good" onclick="setMatrikkelStatus('${mat_id}', 'good'); this.closest('.leaflet-popup').remove();">Good to go!</button>
+                                        <button class="status-btn conflict" onclick="setMatrikkelStatus('${mat_id}', 'conflict'); this.closest('.leaflet-popup').remove();">Conflict</button>
+                                        <button class="status-btn reset" onclick="setMatrikkelStatus('${mat_id}', 'reset'); this.closest('.leaflet-popup').remove();">Reset</button>
+                                    </div>
+                                `;
+                                layer.bindPopup(popupContent);
                             }
                         }
                     }).addTo(map);
