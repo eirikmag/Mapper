@@ -321,6 +321,13 @@ toggleBtn.addEventListener('click', () => {
 const locateBtn = document.getElementById('locate-btn');
 let userLocationLayer = null;
 let isTracking = false;
+let userPath = [];
+let userPathLayer = L.polyline([], {
+    color: '#28a745',
+    weight: 5,
+    opacity: 0.8,
+    pane: 'gpxPane' // Keep it above property borders
+}).addTo(map);
 
 locateBtn.addEventListener('click', () => {
     if (isTracking) {
@@ -330,9 +337,14 @@ locateBtn.addEventListener('click', () => {
         locateBtn.textContent = '📍';
         locateBtn.classList.remove('active');
         if (userLocationLayer) map.removeLayer(userLocationLayer);
+        // Keep the green line on map? Or clear it? 
+        // User asked to trace "when active", so let's keep it visible until next start.
     } else {
         // Start tracking
         isTracking = true;
+        userPath = []; // Reset path for new session
+        userPathLayer.setLatLngs([]);
+
         locateBtn.textContent = '🛰️';
         locateBtn.classList.add('active');
         map.locate({
@@ -346,6 +358,10 @@ locateBtn.addEventListener('click', () => {
 
 map.on('locationfound', (e) => {
     if (!isTracking) return;
+
+    // Add point to trace
+    userPath.push(e.latlng);
+    userPathLayer.setLatLngs(userPath);
 
     if (userLocationLayer) {
         map.removeLayer(userLocationLayer);
@@ -414,6 +430,7 @@ async function setMatrikkelStatus(id, status) {
     if (ownerLayer) {
         ownerLayer.setStyle(ownerLayer.options.style);
     }
+    if (ownerData) renderOwnerLegend(ownerData.features);
 
     // Save to server
     try {
@@ -493,22 +510,58 @@ function ensureGradient(owner, color) {
 }
 
 function renderOwnerLegend(features) {
-    ownerLegend.innerHTML = '<strong>Owners</strong>';
-    const owners = new Set();
+    ownerLegend.innerHTML = '<strong>Owners (Click to zoom)</strong>';
+
+    // Group properties by owner
+    const ownerGroups = {};
     features.forEach(f => {
-        if (f.properties && f.properties.eier) owners.add(f.properties.eier);
+        const owner = f.properties.eier;
+        if (!owner) return;
+        if (!ownerGroups[owner]) ownerGroups[owner] = [];
+        ownerGroups[owner].push(f.properties.matrikkelnummer);
     });
 
     // Sort owners alphabetically
-    Array.from(owners).sort().forEach(owner => {
-        const color = stringToColor(owner);
-        // Ensure gradient exists just in case, though usually main loop does it
-        ensureGradient(owner, color);
+    Object.keys(ownerGroups).sort().forEach(owner => {
+        const matrikkels = ownerGroups[owner];
+
+        // Determine the overall status for this owner
+        let color = '#9d7edb'; // Default Purple
+
+        const hasConflict = matrikkels.some(m => matrikkelStatus[m] === 'conflict');
+        const allGood = matrikkels.every(m => matrikkelStatus[m] === 'good');
+
+        if (hasConflict) {
+            color = '#dc3545'; // Red if any conflict
+        } else if (allGood) {
+            color = '#28a745'; // Green only if all are good
+        }
 
         const div = document.createElement('div');
-        div.className = 'legend-item';
-        // Show solid block for legend
+        div.className = 'legend-item clickable';
         div.innerHTML = `<span class="legend-color" style="background-color: ${color}"></span>${owner}`;
+
+        div.addEventListener('click', () => {
+            if (!ownerLayer) return;
+
+            const targetBounds = L.latLngBounds([]);
+            let firstLayer = null;
+
+            ownerLayer.eachLayer(layer => {
+                if (layer.feature && layer.feature.properties && layer.feature.properties.eier === owner) {
+                    targetBounds.extend(layer.getBounds());
+                    if (!firstLayer) firstLayer = layer;
+                }
+            });
+
+            if (firstLayer) {
+                map.fitBounds(targetBounds, { padding: [50, 50], maxZoom: 16 });
+                setTimeout(() => {
+                    firstLayer.openPopup();
+                }, 300);
+            }
+        });
+
         ownerLegend.appendChild(div);
     });
 }
@@ -547,16 +600,16 @@ ownerBtn.addEventListener('click', async () => {
                                 return { color: '#dc3545', weight: 4, opacity: 1, fillColor: '#dc3545', fillOpacity: 0.5 };
                             }
 
-                            const owner = feature.properties.eier;
-                            const color = stringToColor(owner);
-                            const gradId = ensureGradient(owner, color);
+                            // Default purple color for everything else
+                            const purpleColor = '#9d7edb';
+                            const gradId = ensureGradient('default-purple', purpleColor);
 
                             return {
-                                color: 'black',        // Border color
+                                color: '#4b0082',        // Deep indigo border
                                 weight: 2,
                                 opacity: 0.8,
-                                fillColor: `url(#${gradId})`, // Helper for SVG patterns
-                                fillOpacity: 1 // Must be 1 so gradient opacity controls it
+                                fillColor: `url(#${gradId})`,
+                                fillOpacity: 1
                             };
                         },
                         onEachFeature: function (feature, layer) {
