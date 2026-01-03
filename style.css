@@ -50,7 +50,7 @@ html {
 
 #toggle-controls,
 #locate-btn,
-#nogo-btn {
+#owner-btn {
     background: none;
     border: none;
     line-height: 1;
@@ -70,17 +70,9 @@ html {
 }
 
 #locate-btn,
-#nogo-btn {
+#owner-btn {
     font-size: 1.5rem;
     margin-right: 5px;
-}
-
-#nogo-btn.active,
-#owner-btn.active {
-    background-color: #ffebeb;
-    border-radius: 4px;
-    color: red;
-    border: 1px solid red;
 }
 
 #owner-btn.active {
@@ -178,7 +170,7 @@ html {
 
 #locate-btn:hover,
 #toggle-controls:hover,
-#nogo-btn:hover {
+#owner-btn:hover {
     color: #333;
 }
 
