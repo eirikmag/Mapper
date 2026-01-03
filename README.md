@@ -1,4 +1,4 @@
-# Norgeskart GPX Viewer
+# Elgkollen løyper
 ## Goal & Purpose
 The primary purpose of this tool is to facilitate the **planning of new cross-country ski tracks**. 
 
