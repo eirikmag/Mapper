@@ -320,26 +320,60 @@ toggleBtn.addEventListener('click', () => {
 // 5. GPS / Geolocation
 const locateBtn = document.getElementById('locate-btn');
 let userLocationLayer = null;
+let isTracking = false;
 
 locateBtn.addEventListener('click', () => {
-    locateBtn.textContent = '⏳'; // Loading state
-    map.locate({ setView: true, maxZoom: 16 });
+    if (isTracking) {
+        // Stop tracking
+        map.stopLocate();
+        isTracking = false;
+        locateBtn.textContent = '📍';
+        locateBtn.classList.remove('active');
+        if (userLocationLayer) map.removeLayer(userLocationLayer);
+    } else {
+        // Start tracking
+        isTracking = true;
+        locateBtn.textContent = '🛰️';
+        locateBtn.classList.add('active');
+        map.locate({
+            watch: true,
+            setView: true,
+            maxZoom: 16,
+            enableHighAccuracy: true
+        });
+    }
 });
 
 map.on('locationfound', (e) => {
-    locateBtn.textContent = '📍';
+    if (!isTracking) return;
+
     if (userLocationLayer) {
         map.removeLayer(userLocationLayer);
     }
-    // Add a circle to show accuracy and a marker for position
-    userLocationLayer = L.layerGroup([
-        L.circle(e.latlng, e.accuracy / 2, { weight: 1, color: 'blue', fillColor: '#cacaca', fillOpacity: 0.2 }),
-        L.circleMarker(e.latlng, { radius: 8, color: '#fff', fillColor: '#2A93EE', fillOpacity: 1, weight: 2 })
-    ]).addTo(map);
+
+    // Create a directional marker if heading is available
+    const heading = e.heading || 0;
+    const hasHeading = e.heading !== null && e.heading !== undefined;
+
+    const arrowIcon = L.divIcon({
+        className: 'location-marker',
+        html: `
+            <div class="accuracy-circle" style="width: ${e.accuracy}px; height: ${e.accuracy}px;"></div>
+            <div class="user-dot">
+                ${hasHeading ? `<div class="heading-arrow" style="transform: rotate(${heading}deg)"></div>` : ''}
+            </div>
+        `,
+        iconSize: [20, 20],
+        iconAnchor: [10, 10]
+    });
+
+    userLocationLayer = L.marker(e.latlng, { icon: arrowIcon }).addTo(map);
 });
 
 map.on('locationerror', (e) => {
+    isTracking = false;
     locateBtn.textContent = '📍';
+    locateBtn.classList.remove('active');
     alert("Could not access location: " + e.message);
 });
 
