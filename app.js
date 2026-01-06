@@ -120,16 +120,16 @@ function toggleTrackVisibility(id, isVisible) {
 
 // --- UI Rendering ---
 
-function createTrackListItem(name, id, isLocal) {
+function createTrackListItem(name, id, isLocal, metadata = {}) {
     const li = document.createElement('li');
-
-    // Checkbox State: Default to checked
-    const isChecked = true;
+    const type = metadata.type || 'default';
+    const badgeText = type === 'skiing' ? 'Ski' : type === 'hiking' ? 'Hike' : '';
 
     li.innerHTML = `
         <label>
             <input type="checkbox" checked>
             <span class="track-name" title="${name}">${name}</span>
+            ${badgeText ? `<span class="track-badge ${type}">${badgeText}</span>` : ''}
         </label>
         ${isLocal ? '<button class="delete-btn" title="Remove track">×</button>' : ''}
     `;
@@ -219,7 +219,7 @@ async function fetchServerTracks() {
                         }
                     }
                 }
-                serverTrackList.appendChild(createTrackListItem(filename, id, false));
+                serverTrackList.appendChild(createTrackListItem(filename, id, false, typeof filepath === 'object' ? filepath : {}));
             });
         }
 
