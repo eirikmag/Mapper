@@ -56,8 +56,8 @@ const noServerTracksMsg = document.getElementById('no-server-tracks');
 
 function getTrackColor(type) {
     switch (type) {
-        case 'hiking': return '#d9534f'; // Red
-        case 'skiing': return '#4169e1'; // Royal Blue
+        case 'hiking': return '#4169e1'; // Royal Blue
+        case 'skiing': return '#d9534f'; // Red
         default: return '#4169e1'; // Default Blue
     }
 }
