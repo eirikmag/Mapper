@@ -54,6 +54,14 @@ const noServerTracksMsg = document.getElementById('no-server-tracks');
 
 // --- Helper Functions ---
 
+function getTrackColor(type) {
+    switch (type) {
+        case 'hiking': return '#d9534f'; // Red
+        case 'skiing': return '#4169e1'; // Royal Blue
+        default: return '#4169e1'; // Default Blue
+    }
+}
+
 function saveLocalTracks() {
     try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(localTracks));
@@ -63,7 +71,7 @@ function saveLocalTracks() {
 }
 
 // Add track to map
-// urlOrContent: can be a URL (for server tracks) or raw XML string (for local tracks)
+// urlOrContent: can be a URL (for server tracks), a raw XML string (for local tracks), or an object {url, type}
 // id: unique identifier for the track
 function loadTrackLayer(id, urlOrContent, isLocal) {
     if (loadedLayers[id]) return; // Already loaded
@@ -72,7 +80,8 @@ function loadTrackLayer(id, urlOrContent, isLocal) {
         async: true,
         polyline_options: {
             pane: 'gpxPane',
-            color: 'blue',
+            pane: 'gpxPane',
+            color: getTrackColor(urlOrContent.type || 'default'),
             weight: 5
         },
         marker_options: {
@@ -83,7 +92,13 @@ function loadTrackLayer(id, urlOrContent, isLocal) {
         }
     };
 
-    const layer = new L.GPX(urlOrContent, gpxOptions)
+    const trackSource = (typeof urlOrContent === 'object' && urlOrContent.url) ? urlOrContent.url : urlOrContent;
+    const trackType = (typeof urlOrContent === 'object' && urlOrContent.type) ? urlOrContent.type : 'default';
+
+    // Override color logic in options
+    gpxOptions.polyline_options.color = getTrackColor(trackType);
+
+    const layer = new L.GPX(trackSource, gpxOptions)
         .on('loaded', function (e) {
             // Optional: fit bounds only if it's the first time loading or user requested
         });
@@ -184,11 +199,17 @@ async function fetchServerTracks() {
         } else {
             noServerTracksMsg.style.display = 'none';
             files.forEach((filepath, index) => {
-                const filename = filepath.split('/').pop();
+                const url = (typeof filepath === 'string') ? filepath : filepath.url;
+                const filename = url.replace(/\\/g, '/').split('/').pop();
                 const id = 'server_' + filename;
 
                 if (!loadedLayers[id]) {
-                    const layer = loadTrackLayer(id, filepath, false);
+                    // Support both string paths and object with metadata
+                    const trackData = (typeof filepath === 'string')
+                        ? { url: filepath, type: 'default' }
+                        : filepath;
+
+                    const layer = loadTrackLayer(id, trackData, false);
                     if (layer) {
                         layer.addTo(map);
                         if (index === 0) {

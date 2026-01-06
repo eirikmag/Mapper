@@ -15,16 +15,41 @@ class MyHandler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             
             tracks = []
+            list_config = {}
+            list_json_path = os.path.join(TRACKS_DIR, 'list.json')
+            
+            # Load list.json as a reference for metadata (type, etc.)
+            if os.path.exists(list_json_path):
+                try:
+                    with open(list_json_path, 'r', encoding='utf-8') as f:
+                        raw_list = json.load(f)
+                        # Build a lookup: filename -> metadata object
+                        for item in raw_list:
+                            if isinstance(item, dict) and 'url' in item:
+                                url = item['url'].replace('\\', '/')
+                                filename = url.split('/')[-1]
+                                list_config[filename] = item
+                            elif isinstance(item, str):
+                                filename = item.replace('\\', '/').split('/')[-1]
+                                list_config[filename] = {"url": item, "type": "default"}
+                except Exception as e:
+                    print(f"Error loading list.json: {e}")
+
             if os.path.exists(TRACKS_DIR):
-                # patterns: look for .gpx and .GPX
-                files = []
+                found_files = set()
                 for ext in ('*.gpx', '*.GPX'):
-                    files.extend(glob.glob(os.path.join(TRACKS_DIR, ext)))
+                    for f in glob.glob(os.path.join(TRACKS_DIR, ext)):
+                        # Normalize to forward slashes and get relative path
+                        rel_path = os.path.relpath(f, '.').replace('\\', '/')
+                        found_files.add(rel_path)
                 
-                # Get filenames relative to TRACKS_DIR, but we want to serve them relative to root for Leaflet
-                # Actually, simpleHTTPRequestHandler serves from root.
-                # So if we return "tracks/filename.gpx", the frontend can fetch it.
-                tracks = [f for f in files]
+                # Build the final response list
+                for rel_path in sorted(list(found_files)):
+                    filename = rel_path.split('/')[-1]
+                    if filename in list_config:
+                        tracks.append(list_config[filename])
+                    else:
+                        tracks.append({"url": rel_path, "type": "default"})
             
             self.wfile.write(json.dumps(tracks).encode())
         elif self.path.startswith('/api/eiendom'):

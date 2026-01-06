@@ -34,7 +34,7 @@ This project is a simple web application to view Norgeskart topographic maps wit
 - Toggle "Property Borders" in the layer control (top-right).
 
 ### 3. Track Management
-- **Server Tracks**: Place `.gpx` files in the `tracks/` folder. They will automatically appear in the "Server Tracks" list.
+- **Official Tracks**: Place `.gpx` files in the `tracks/` folder. They will automatically appear in the "Server Tracks" list.
 - **Local Tracks**: Upload files via the "Choose Files" button. These are saved in your browser.
 - **Visibility**: Use the checkboxes to show/hide specific tracks without deleting them.
 - **Deletion**: Local tracks can be deleted permanently. Server tracks must be removed from the folder.

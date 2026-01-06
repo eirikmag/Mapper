@@ -1,3 +1,6 @@
 [
-    "tracks/løype_v1.gpx"
+    {
+        "url": "tracks/skiløype_1.gpx",
+        "type": "skiing"
+    }
 ]
